@@ -5,7 +5,7 @@ init_flexor_muscle;
 % spatial parameters
 l_1 = 0.1675*2;
 l_2 = 0.1315*2;
-x_box = 0.7;
+x_box = 0.6;
 y_box = -0.8;
 
 % predefined release time
