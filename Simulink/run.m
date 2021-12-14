@@ -1,34 +1,22 @@
 clear all;
 %% Initialization
-% Load muscle parameters
-init_extensor_muscle;
-init_flexor_muscle;
-l_1 = 0.1675*2;
-l_2 = 0.1315*2;
-x_box = 0.8;
-y_box = -0.8;
-
-% Simulation parameters
-tsim = 0.75;
-release_time = 0.15;
-dt = 0.001;
-t_span = (0:dt:tsim)';
+init_throwing_arm
 
 mdl = 'throwing_arm';
 
-obsInfo = rlNumericSpec([6 1]);
-obsInfo.Name = 'arm and ball position';
+obsInfo = rlNumericSpec([9 1]);
+obsInfo.Name = 'arm and ball position, velocity and acceleration';
 numObservations = obsInfo.Dimension(1);
 
-actInfo = rlNumericSpec([3 1],...
-    'LowerLimit',[0 0 -1]',...
-    'UpperLimit',[1 1 1]');
+actInfo = rlNumericSpec(1,...
+    'LowerLimit',-1,...
+    'UpperLimit',1);
 actInfo.Name = 'actions';
-actInfo.Description = 'input flexor, extensor and release';
+actInfo.Description = 'muscle input';
 numActions = actInfo.Dimension(1);
 
 
-env = rlSimulinkEnv(mdl,[mdl '/RL Agent'],obsInfo,actInfo);
+env = rlSimulinkEnv(mdl,[mdl '/Agent'],obsInfo,actInfo);
 
 rng(0)
 
@@ -53,27 +41,30 @@ criticNetwork = addLayers(criticNetwork,commonPath);
 criticNetwork = connectLayers(criticNetwork,'CriticStateFC2','add/in1');
 criticNetwork = connectLayers(criticNetwork,'CriticActionFC1','add/in2');
 
-criticOpts = rlRepresentationOptions('LearnRate',1e-02,'GradientThreshold',1);
+criticOpts = rlRepresentationOptions('LearnRate',1e-03,'GradientThreshold',1);
 critic = rlQValueRepresentation(criticNetwork,obsInfo,actInfo,'Observation',{'State'},'Action',{'Action'},criticOpts);
+
+% figure
+% plot(criticNetwork)
 
 actorNetwork = [
     featureInputLayer(numObservations,'Normalization','none','Name','State')
-    fullyConnectedLayer(3, 'Name','actorFC')
+    fullyConnectedLayer(3, 'Name', 'ActorFC')
     tanhLayer('Name','actorTanh')
     fullyConnectedLayer(numActions,'Name','Action')
     ];
 
-actorOptions = rlRepresentationOptions('LearnRate',1e-03,'GradientThreshold',1);
+actorOptions = rlRepresentationOptions('LearnRate',1e-04,'GradientThreshold',1);
 
 actor = rlDeterministicActorRepresentation(actorNetwork,obsInfo,actInfo,'Observation',{'State'},'Action',{'Action'},actorOptions);
 
 agentOpts = rlDDPGAgentOptions(...
     'SampleTime',dt,...
     'TargetSmoothFactor',1e-3,...
-    'DiscountFactor',0.9, ...
+    'DiscountFactor',0.99, ...
     'MiniBatchSize',64, ...
     'ExperienceBufferLength',1e6); 
-agentOpts.NoiseOptions.Variance = 10;
+agentOpts.NoiseOptions.Variance = 0.5;
 agentOpts.NoiseOptions.VarianceDecayRate = 0;
 agent = rlDDPGAgent(actor,critic,agentOpts);
 
@@ -82,11 +73,16 @@ maxsteps = ceil(tsim/dt);
 trainOpts = rlTrainingOptions(...
     'MaxEpisodes',maxepisodes, ...
     'MaxStepsPerEpisode',maxsteps, ...
-    'ScoreAveragingWindowLength',10, ...
+    'ScoreAveragingWindowLength',20, ...
     'Verbose',false, ...
     'Plots','training-progress',...
     'StopTrainingCriteria','AverageReward',...
-    'StopTrainingValue',-1200);
+    'StopTrainingValue',0,...
+    'UseParallel',false,...
+    'StopOnError','off');
+trainOpts.ParallelizationOptions.Mode = "async";
+trainOpts.ParallelizationOptions.StepsUntilDataIsSent = 32;
+trainOpts.ParallelizationOptions.DataToSendFromWorkers = "experiences";
 
 
 trainingStats = train(agent,env,trainOpts);
