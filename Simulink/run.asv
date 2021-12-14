@@ -1,52 +1,53 @@
 clear all;
 %% Initialization
+% Load initialization parameters
 init_throwing_arm
-
+% Specify simulink model
 mdl = 'throwing_arm';
-
+% Specify observations
 obsInfo = rlNumericSpec([9 1]);
 obsInfo.Name = 'arm and ball position, velocity and acceleration';
 numObservations = obsInfo.Dimension(1);
-
-actInfo = rlNumericSpec([2 1],...
-    'LowerLimit',[0 0]',...
-    'UpperLimit',[1 1]');
+% Specify actions
+actInfo = rlNumericSpec(1,...
+    'LowerLimit',-1,...
+    'UpperLimit',1);
 actInfo.Name = 'actions';
-actInfo.Description = 'input flexor, extensor and release';
+actInfo.Description = 'muscle input';
 numActions = actInfo.Dimension(1);
-
-
+% Define environment
 env = rlSimulinkEnv(mdl,[mdl '/Agent'],obsInfo,actInfo);
-
+% Fix random seed
 rng(0)
 
-%% Create DDPG agent https://de.mathworks.com/help/reinforcement-learning/ug/create-simulink-environment-and-train-agent.html
+%% Create DDPG agent
+% Define different paths for action and state in the critic network
 statePath = [
     featureInputLayer(numObservations,'Normalization','none','Name','State')
-    fullyConnectedLayer(10,'Name','CriticStateFC1')
+    fullyConnectedLayer(50,'Name','CriticStateFC1')
     reluLayer('Name','CriticRelu1')
-    fullyConnectedLayer(5,'Name','CriticStateFC2')];
+    fullyConnectedLayer(25,'Name','CriticStateFC2')];
 actionPath = [
     featureInputLayer(numActions,'Normalization','none','Name','Action')
-    fullyConnectedLayer(5,'Name','CriticActionFC1')];
+    fullyConnectedLayer(25,'Name','CriticActionFC1')];
 commonPath = [
     additionLayer(2,'Name','add')
     reluLayer('Name','CriticCommonRelu')
     fullyConnectedLayer(1,'Name','CriticOutput')];
-
+% Define the critic network
 criticNetwork = layerGraph();
 criticNetwork = addLayers(criticNetwork,statePath);
 criticNetwork = addLayers(criticNetwork,actionPath);
 criticNetwork = addLayers(criticNetwork,commonPath);
 criticNetwork = connectLayers(criticNetwork,'CriticStateFC2','add/in1');
 criticNetwork = connectLayers(criticNetwork,'CriticActionFC1','add/in2');
-
+% Create critic
 criticOpts = rlRepresentationOptions('LearnRate',1e-03,'GradientThreshold',1);
 critic = rlQValueRepresentation(criticNetwork,obsInfo,actInfo,'Observation',{'State'},'Action',{'Action'},criticOpts);
 
 % figure
 % plot(criticNetwork)
-
+% Define actor network
 actorNetwork = [
     featureInputLayer(numObservations,'Normalization','none','Name','State')
     fullyConnectedLayer(3, 'Name', 'ActorFC')
@@ -54,7 +55,7 @@ actorNetwork = [
     fullyConnectedLayer(numActions,'Name','Action')
     ];
 
-actorOptions = rlRepresentationOptions('LearnRate',1e-03,'GradientThreshold',1);
+actorOptions = rlRepresentationOptions('LearnRate',1e-04,'GradientThreshold',1);
 
 actor = rlDeterministicActorRepresentation(actorNetwork,obsInfo,actInfo,'Observation',{'State'},'Action',{'Action'},actorOptions);
 
@@ -64,11 +65,11 @@ agentOpts = rlDDPGAgentOptions(...
     'DiscountFactor',0.99, ...
     'MiniBatchSize',64, ...
     'ExperienceBufferLength',1e6); 
-agentOpts.NoiseOptions.Variance = 1;
-agentOpts.NoiseOptions.VarianceDecayRate = 0;
+agentOpts.NoiseOptions.Variance = 0.3;
+agentOpts.NoiseOptions.VarianceDecayRate = 1e-03;
 agent = rlDDPGAgent(actor,critic,agentOpts);
 
-maxepisodes = 500;
+maxepisodes = 50;
 maxsteps = ceil(tsim/dt);
 trainOpts = rlTrainingOptions(...
     'MaxEpisodes',maxepisodes, ...
@@ -76,8 +77,8 @@ trainOpts = rlTrainingOptions(...
     'ScoreAveragingWindowLength',20, ...
     'Verbose',false, ...
     'Plots','training-progress',...
-    'StopTrainingCriteria','AverageReward',...
-    'StopTrainingValue',200,...
+    'StopTrainingCriteria','EpisodeReward',...
+    'StopTrainingValue',-50,...
     'UseParallel',false,...
     'StopOnError','off');
 trainOpts.ParallelizationOptions.Mode = "async";

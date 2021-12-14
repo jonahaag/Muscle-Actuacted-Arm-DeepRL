@@ -6,10 +6,10 @@ init_flexor_muscle;
 l_1 = 0.1675*2;
 l_2 = 0.1315*2;
 x_box = 0.6;
-y_box = -0.8;
+y_box = -0.6;
 
 % predefined release time
-release_time = 0.25;
+release_time = 0.165;
 %release_time = 0.5;
 
 %
