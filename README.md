@@ -8,7 +8,7 @@ To be precise, we used Deep Deterministic Policy Gradient (DDPG) as a suitable a
 
 ![Performance of the trained RL agent in a given setting.](Results/episode_hit.mov)
 
-![Reward over episodes for a simple example. The training was stopped after the first make.](Results/fast_learner_rewards.png){width="50%"}
+![Reward over episodes for a simple example. The training was stopped after the first make.](Results/fast_learner_rewards.png)
 
 ### Prerequisites
 
