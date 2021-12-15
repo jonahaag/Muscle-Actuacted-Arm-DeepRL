@@ -6,9 +6,9 @@ The main goal of the project was to build a Hill-type muscle model of an arm and
 Drawing inspiration from basketball, Deep Reinforcement Learning is used to train an agent to throw a ball into a box.
 To be precise, we used Deep Deterministic Policy Gradient (DDPG) as a suitable algorithm for contiuous action and state space.
 
-![Performance of the trained RL agent in a given setting.](../Results/episode_hit.mov)
+![Performance of the trained RL agent in a given setting.](Results/episode_hit.mov)
 
-![Reward over episodes for a simple example. The training was stopped after the first make.](../Results/fast_learner_reward.png)
+![Reward over episodes for a simple example. The training was stopped after the first make.](Results/fast_learner_rewards.png){width="50%"}
 
 ### Prerequisites
 
